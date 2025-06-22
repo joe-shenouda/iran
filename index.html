@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iran Cyber Threat: Interactive Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Subtle Neutrality -->
+    <!-- Application Structure Plan: A thematic, single-page dashboard. The structure guides the user from a high-level strategic overview ('The Hybrid War') to specific details ('The Attackers', 'The Targets') and actionable advice ('The Playbook'). This non-linear, thematic structure is chosen over the report's linear format to improve usability. Users can immediately jump to the section most relevant to them (e.g., a CISO might go straight to 'The Playbook'). Key interactions include a dynamic Threat Actor database to explore attacker profiles, an interactive diagram of the attack lifecycle, and a filterable matrix of defensive mitigations, all designed to make dense information digestible and engaging. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Hacktivist group numbers -> Goal: Compare -> Viz: Bar Chart (Chart.js) -> Interaction: Hover for details -> Justification: Clear visual comparison of disproportionate forces.
+        - Report Info: Threat actor profiles -> Goal: Organize/Inform -> Viz: Interactive selection grid/details panel (HTML/JS) -> Interaction: Click to display data -> Justification: Turns a static table into an exploratory tool, preventing information overload.
+        - Report Info: Target sectors -> Goal: Inform/Organize -> Viz: Icon-based grid with pop-ups (HTML/JS/Tailwind) -> Interaction: Hover/Click -> Justification: More visually engaging and scannable than a simple list.
+        - Report Info: Attack TTPs -> Goal: Organize (Process) -> Viz: Horizontal flow diagram (HTML/CSS Flexbox) -> Interaction: Click to expand stage details -> Justification: Visualizes the attack process clearly and interactively without needing SVG.
+        - Report Info: Malware-free attack percentage -> Goal: Inform (Proportion) -> Viz: Donut Chart (Chart.js) -> Interaction: Hover for exact percentage -> Justification: Immediately highlights a critical modern trend.
+        - Report Info: Defensive mitigations table -> Goal: Inform/Actionable -> Viz: Filterable matrix (HTML/JS) -> Interaction: Click filters to show relevant defenses -> Justification: Transforms a dense reference table into a practical tool for defenders.
+        - All choices confirm NO SVG/Mermaid JS, using either Chart.js for canvas-based charts or structured HTML/Tailwind/JS for diagrams and interactive elements.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #1e293b; /* slate-800 */
+        }
+        .nav-link {
+            transition: color 0.2s ease-in-out, border-bottom-color 0.2s ease-in-out;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #0d9488; /* teal-600 */
+            border-bottom-color: #0d9488;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .section-fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .section-fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header id="header" class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-4 lg:px-6">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-slate-800">Iran Cyber Threat Intel</h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#overview" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">Overview</a>
+                        <a href="#attackers" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">The Attackers</a>
+                        <a href="#battlefield" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">The Battlefield</a>
+                        <a href="#infowar" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">The Infowar</a>
+                        <a href="#future" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">The Future</a>
+                        <a href="#playbook" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-slate-600">The Playbook</a>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500">
+                        <span class="sr-only">Open main menu</span>
+                        <span class="block h-6 w-6">☰</span>
+                    </button>
+                </div>
+            </div>
+            <div id="mobile-menu" class="md:hidden hidden">
+                <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                    <a href="#overview" class="block nav-link px-3 py-2 rounded-md text-base font-medium text-slate-600">Overview</a>
+                    <a href="#attackers" class="block nav-link px-3 py-2 rounded-md text-base font-medium text-slate-600">The Attackers</a>
+                    <a href="#battlefield" class="block nav-link px-3 py-2 rounded-md text-base font-medium text-slate-600">The Battlefield</a>
+                    <a href="#infowar" class="block nav-link px-3 py-2 rounded-md text-base font-medium text-slate-600">The Infowar</a>
+                    <a href="#future" class="block nav-link px-3 py-2 rounded-md text-base font-medium text-slate-600">The Future</a>
+                    <a href="#playbook" class="block nav-link px-3 py-2 rounded-md text-base font-medium text-slate-600">The Playbook</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 lg:px-6 py-8 md:py-12">
+        
+        <section id="overview" class="scroll-mt-20 section-fade-in">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">The Hybrid War: From Kinetic Strikes to Digital Blowback</h2>
+                <p class="mt-4 max-w-3xl mx-auto text-lg text-slate-600">Following military strikes, Iran's response has pivoted to its strong suit: asymmetric warfare in cyberspace. This dashboard analyzes the multi-faceted cyber threat, from state-sponsored actors to hacktivist proxies, revealing a calculated strategy of disruption, espionage, and psychological operations targeting Western nations.</p>
+            </div>
+            
+            <div class="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h3 class="text-lg font-semibold text-slate-800">Doctrine of Retaliation</h3>
+                    <p class="mt-2 text-slate-600">Iran leverages its sophisticated cyber program as a flexible, potent tool to retaliate and project power with a degree of plausible deniability, managing escalation risks.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h3 class="text-lg font-semibold text-slate-800">Global Consensus</h3>
+                    <p class="mt-2 text-slate-600">Intelligence agencies from the US (DHS, CISA), UK (NCSC, MI5), and EU (ENISA) are in unified agreement on the heightened, persistent threat from Iranian cyber actors.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h3 class="text-lg font-semibold text-slate-800">The Spillover Effect</h3>
+                    <p class="mt-2 text-slate-600">Attacks are not geographically contained. The interconnectedness of global supply chains means collateral damage to allied nations and businesses is a significant risk.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="attackers" class="mt-20 scroll-mt-20 section-fade-in">
+             <div class="text-center">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">The Iranian Cyber Arsenal</h2>
+                <p class="mt-4 max-w-3xl mx-auto text-lg text-slate-600">Iran's offensive power is a complex ecosystem. It combines elite, state-directed Advanced Persistent Threat (APT) groups with a vast network of deniable hacktivist proxies, creating a flexible, two-pronged force for hybrid warfare.</p>
+            </div>
+
+            <div class="mt-12 md:grid md:grid-cols-5 md:gap-8">
+                <div class="md:col-span-2">
+                    <h3 class="text-xl font-semibold text-slate-800 mb-4">Threat Actor Database</h3>
+                    <p class="text-slate-600 mb-4">Select a threat actor group to view their profile. These state-sponsored groups represent the elite forces of Iran's cyber command, often specializing in specific sectors and tactics.</p>
+                    <div id="apt-selector" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    </div>
+                </div>
+                <div class="md:col-span-3 mt-8 md:mt-0">
+                    <div id="apt-details" class="bg-white p-6 rounded-xl shadow-lg border border-slate-200 min-h-[300px]">
+                        <p class="text-slate-500 italic text-center pt-20">Select an actor to see details</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-16 bg-white p-6 rounded-xl shadow-lg border border-slate-200 section-fade-in">
+                <h3 class="text-xl text-center font-semibold text-slate-800 mb-4">The Hacktivist Façade: A War of Noise</h3>
+                <p class="text-slate-600 max-w-2xl mx-auto text-center mb-6">Alongside elite APTs, Iran leverages a vast network of "faketivist" groups for propaganda and low-level disruption. These groups provide plausible deniability and create a media narrative of overwhelming strength.</p>
+                <div class="chart-container">
+                    <canvas id="hacktivistChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="battlefield" class="mt-20 scroll-mt-20 section-fade-in">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">The Battlefield: Targets & Tactics</h2>
+                <p class="mt-4 max-w-3xl mx-auto text-lg text-slate-600">Iran's strategy involves a diversified portfolio of targets, chosen to maximize disruption, gather intelligence, and exert psychological pressure. This section breaks down who is at risk and the common methods of attack.</p>
+            </div>
+
+            <div class="mt-12">
+                <h3 class="text-xl text-center font-semibold text-slate-800 mb-6">High-Value Target Sectors</h3>
+                <div id="target-sectors" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-center">
+                </div>
+            </div>
+
+            <div class="mt-16">
+                <h3 class="text-xl text-center font-semibold text-slate-800 mb-6">Anatomy of an Attack</h3>
+                <p class="text-slate-600 max-w-2xl mx-auto text-center mb-8">Iranian operations, though complex, follow a consistent pattern. Click each stage to learn about the common Tactics, Techniques, and Procedures (TTPs).</p>
+                <div id="attack-flow" class="flex flex-col md:flex-row justify-center items-center gap-4">
+                </div>
+            </div>
+        </section>
+        
+        <section id="infowar" class="mt-20 scroll-mt-20 section-fade-in">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">The War of Narratives</h2>
+                <p class="mt-4 max-w-3xl mx-auto text-lg text-slate-600">The battle for perception is a central front. Iran employs "cyber-based consciousness warfare," using disinformation and psychological operations to control the narrative, sow chaos, and undermine public trust.</p>
+            </div>
+            <div class="mt-12 grid md:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h3 class="font-semibold text-lg text-slate-800">AI-Generated Propaganda</h3>
+                    <p class="mt-2 text-slate-600">Actors use generative AI to rapidly create convincing fake news, deepfakes, and imagery. A recent TikTok campaign used AI to fabricate images of destruction in Israel and ridicule Western leaders, showcasing a leap in propaganda sophistication.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h3 class="font-semibold text-lg text-slate-800">The Tit-for-Tat Cycle</h3>
+                    <p class="mt-2 text-slate-600">Each side's cyberattacks provide fodder for the other's propaganda. Iran frames its attacks as justified retaliation for Israeli actions (e.g., hacks on Iranian banks), creating a narrative of righteous self-defense to manage escalation.</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200 md:col-span-2">
+                    <h3 class="font-semibold text-lg text-slate-800">Weaponizing Civilian IoT</h3>
+                    <p class="mt-2 text-slate-600">A key innovation is hacking civilian IoT devices, like security cameras, for military intelligence and psychological warfare. This provides real-time battle damage assessment and creates profound public fear, blurring the lines between military and civilian spheres and turning consumer electronics into a vast, undefendable attack surface.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="future" class="mt-20 scroll-mt-20 section-fade-in">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Future Trajectories & Evolving Threats</h2>
+                <p class="mt-4 max-w-3xl mx-auto text-lg text-slate-600">The Iranian cyber threat is not static. Adversaries are becoming faster, more efficient, and are adopting new technologies like AI, fundamentally changing the defensive landscape.</p>
+            </div>
+            <div class="mt-12 grid lg:grid-cols-2 gap-8 items-center">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h3 class="text-xl text-center font-semibold text-slate-800 mb-4">The Shift to "Malware-Free" Attacks</h3>
+                    <p class="text-slate-600 max-w-2xl mx-auto text-center mb-6">Adversaries are increasingly "living off the land," using stolen credentials and legitimate tools to bypass traditional defenses. The new battleground is identity.</p>
+                    <div class="chart-container">
+                        <canvas id="malwareFreeChart"></canvas>
+                    </div>
+                </div>
+                 <div class="space-y-8">
+                    <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                        <h3 class="font-semibold text-lg text-slate-800">The "Enterprising Adversary"</h3>
+                        <p class="mt-2 text-slate-600">State actors are adopting business-like efficiency, dramatically reducing "breakout time" (initial compromise to lateral movement) to as little as 48 minutes, leaving defenders a vanishing window to respond.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                        <h3 class="font-semibold text-lg text-slate-800">The AI Force Multiplier</h3>
+                        <p class="mt-2 text-slate-600">Confirmed use of Large Language Models (LLMs) for scripting, crafting convincing phishing emails, and researching vulnerabilities. AI is accelerating the entire attack lifecycle.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="playbook" class="mt-20 scroll-mt-20 section-fade-in">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">The Defensive Playbook</h2>
+                <p class="mt-4 max-w-3xl mx-auto text-lg text-slate-600">Countering this threat requires a resilient, multi-layered defense. This interactive playbook, mapped to the MITRE ATT&CK® framework, provides recommended mitigations against Iran's known TTPs. Filter by tactic to find relevant defenses.</p>
+            </div>
+            <div class="mt-8">
+                <div id="mitigation-filters" class="flex flex-wrap justify-center gap-2 mb-8">
+                </div>
+                <div class="overflow-x-auto bg-white rounded-xl shadow-lg border border-slate-200">
+                    <table class="w-full text-sm text-left text-slate-600">
+                        <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Tactic & Technique (MITRE ATT&CK)</th>
+                                <th scope="col" class="px-6 py-3">Primary Defensive Mitigation</th>
+                                <th scope="col" class="px-6 py-3">Secondary Mitigations</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mitigations-table">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-slate-800 text-white mt-20">
+        <div class="container mx-auto px-4 lg:px-6 py-8 text-center text-slate-400">
+            <p>This interactive dashboard is based on an aggregation of public threat intelligence reports. It is intended for informational and educational purposes.</p>
+            <p class="text-sm mt-2">&copy; 2024 Threat Intelligence Analysis. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            const aptData = {
+                "APT34": { name: "APT34", aliases: "OilRig, Hazel Sandstorm", affiliation: "Ministry of Intelligence and Security (MOIS)", targets: "Government, Financial, Energy, Telco; Middle East, USA", ttps: "Spear-phishing, SharePoint exploits, custom backdoors (Helminth), DNS tunneling.", color: "bg-red-100 text-red-800", borderColor: "border-red-300" },
+                "APT33": { name: "APT33", aliases: "Peach Sandstorm, Elfin", affiliation: "Islamic Revolutionary Guard Corps (IRGC)", targets: "Aerospace, Defense, Energy; USA, Saudi Arabia, Europe", ttps: "Password spraying, social engineering, destructive wiper malware (Shamoon).", color: "bg-orange-100 text-orange-800", borderColor: "border-orange-300" },
+                "APT35": { name: "APT35", aliases: "Mint Sandstorm, Charming Kitten", affiliation: "Islamic Revolutionary Guard Corps (IRGC)", targets: "Government, Military, Academia, Activists; USA, UK, Israel", ttps: "Highly sophisticated spear-phishing, credential harvesting, fake personas.", color: "bg-amber-100 text-amber-800", borderColor: "border-amber-300" },
+                "Mango Sandstorm": { name: "Mango Sandstorm", aliases: "MuddyWater, Mercury", affiliation: "Ministry of Intelligence and Security (MOIS)", targets: "Government, Telco, IT; Middle East, Europe, North America", ttps: "Exploits of known vulnerabilities, living-off-the-land techniques.", color: "bg-yellow-100 text-yellow-800", borderColor: "border-yellow-300" },
+                "Cyber Av3ngers": { name: "Cyber Av3ngers", aliases: "Online persona", affiliation: "IRGC Cyber-Electronic Command (IRGC-CEC)", targets: "Critical Infrastructure (Water, Energy); USA, Israel", ttps: "Targeting ICS/PLCs, often with default passwords; website defacements.", color: "bg-lime-100 text-lime-800", borderColor: "border-lime-300" },
+                "UNC1860": { name: "UNC1860", aliases: "Initial Access Broker", affiliation: "Ministry of Intelligence and Security (MOIS)", targets: "Telecommunications, Government; Middle East", ttps: "Initial access broker, plants hidden backdoors (TEMPLEPLAY) for other units.", color: "bg-green-100 text-green-800", borderColor: "border-green-300" },
+            };
+
+            const aptSelector = document.getElementById('apt-selector');
+            const aptDetails = document.getElementById('apt-details');
+            Object.keys(aptData).forEach(key => {
+                const button = document.createElement('button');
+                button.textContent = key;
+                button.className = `p-3 rounded-lg font-semibold transition ${aptData[key].color} hover:ring-2 ${aptData[key].borderColor.replace('border-','ring-')}`;
+                button.onclick = () => {
+                    aptDetails.innerHTML = `
+                        <div class="p-4 rounded-lg ${aptData[key].color} border-2 ${aptData[key].borderColor}">
+                           <h4 class="text-xl font-bold">${aptData[key].name}</h4>
+                           <p class="text-sm font-medium mt-1"><strong>Aliases:</strong> ${aptData[key].aliases}</p>
+                        </div>
+                        <div class="mt-4 space-y-3 text-slate-700">
+                           <p><strong>Assessed Affiliation:</strong> ${aptData[key].affiliation}</p>
+                           <p><strong>Primary Targets:</strong> ${aptData[key].targets}</p>
+                           <p><strong>Key TTPs:</strong> ${aptData[key].ttps}</p>
+                        </div>
+                    `;
+                    document.querySelectorAll('#apt-selector button').forEach(btn => btn.classList.remove('ring-2', 'ring-offset-2'));
+                    button.classList.add('ring-2', 'ring-offset-2');
+                };
+                aptSelector.appendChild(button);
+            });
+
+            const targetSectorsData = [
+                { name: "Energy", icon: "⚡️", details: "Oil, gas, and electricity grids are prime targets for disruption to cause maximum economic and public impact." },
+                { name: "Water", icon: "💧", details: "Water and wastewater utilities are targeted to affect public health and create civil unrest. E.g., 'Cyber Av3ngers' attacks." },
+                { name: "Finance", icon: "🏦", details: "Banks and financial institutions are targeted for disruption (DDoS) and economic damage, as seen in 'Operation Ababil'." },
+                { name: "Transportation", icon: "✈️", details: "Ports, rail, and aviation systems are targeted to disrupt supply chains and daily life." },
+                { name: "Healthcare", icon: "🏥", details: "Hospitals and healthcare services are high-value targets, where disruption can have life-threatening consequences." },
+                { name: "Government", icon: "🏛️", details: "Government and diplomatic bodies are perennial targets for espionage, data theft, and disruption of services." },
+                { name: "Telecoms", icon: "📡", details: "Telecommunication providers are targeted to disrupt communications and as a stepping stone to other targets." },
+                { name: "Civilian IoT", icon: "📷", details: "Insecure devices like security cameras are weaponized for intelligence gathering and psychological warfare." },
+            ];
+
+            const targetSectorsContainer = document.getElementById('target-sectors');
+            targetSectorsData.forEach(sector => {
+                const div = document.createElement('div');
+                div.className = 'bg-white p-4 rounded-xl shadow-lg border border-slate-200 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300';
+                div.innerHTML = `
+                    <div class="text-4xl">${sector.icon}</div>
+                    <h4 class="font-semibold mt-2 text-slate-800">${sector.name}</h4>
+                    <p class="text-xs text-slate-500 mt-1 hidden md:block">${sector.details}</p>
+                `;
+                div.onclick = () => {
+                   const existingModal = document.querySelector('.modal');
+                   if(existingModal) existingModal.remove();
+
+                   const modal = document.createElement('div');
+                   modal.className = 'modal fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4';
+                   modal.innerHTML = `
+                        <div class="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md text-center relative">
+                            <button class="absolute top-2 right-2 text-2xl font-bold text-slate-500 hover:text-slate-800">&times;</button>
+                            <div class="text-5xl mb-4">${sector.icon}</div>
+                            <h3 class="text-2xl font-bold text-slate-900">${sector.name}</h3>
+                            <p class="mt-4 text-slate-600">${sector.details}</p>
+                        </div>
+                   `;
+                   document.body.appendChild(modal);
+                   modal.querySelector('button').onclick = () => modal.remove();
+                   modal.onclick = (e) => { if(e.target === modal) modal.remove() };
+                };
+                targetSectorsContainer.appendChild(div);
+            });
+            
+            const attackFlowData = [
+                { stage: "1. Initial Access", details: "The most common entry vectors are exploiting known vulnerabilities in public-facing apps (e.g., Exchange, Fortinet) and sophisticated spear-phishing campaigns.", color: "teal" },
+                { stage: "2. Execution & Persistence", details: "Attackers deploy web shells, create new privileged accounts, and use the Task Scheduler to ensure their malware survives reboots and remains hidden.", color: "cyan" },
+                { stage: "3. Impact", details: "The final action depends on the goal: data exfiltration for espionage, DDoS attacks for disruption, or deploying destructive wiper malware (like Shamoon) to irreversibly destroy systems.", color: "rose" },
+            ];
+
+            const attackFlowContainer = document.getElementById('attack-flow');
+            attackFlowData.forEach((item, index) => {
+                const mainDiv = document.createElement('div');
+                mainDiv.className = 'w-full md:w-1/3';
+                
+                const button = document.createElement('button');
+                button.className = `w-full text-left p-4 rounded-lg shadow-md border-l-4 transition-all duration-300 bg-white border-${item.color}-500`;
+                button.innerHTML = `<h4 class="font-bold text-lg text-slate-800">${item.stage}</h4>`;
+                
+                const details = document.createElement('div');
+                details.className = 'p-4 mt-2 rounded-b-lg bg-slate-50 text-slate-600 hidden';
+                details.innerHTML = `<p>${item.details}</p>`;
+                
+                button.onclick = () => {
+                    const isHidden = details.classList.contains('hidden');
+                    document.querySelectorAll('#attack-flow div > div').forEach(d => d.classList.add('hidden'));
+                    if (isHidden) {
+                        details.classList.remove('hidden');
+                    }
+                };
+
+                mainDiv.appendChild(button);
+                mainDiv.appendChild(details);
+                attackFlowContainer.appendChild(mainDiv);
+
+                if (index < attackFlowData.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'text-3xl font-bold text-slate-300 transform md:rotate-0 rotate-90 my-2 md:my-0';
+                    arrow.textContent = '→';
+                    attackFlowContainer.appendChild(arrow);
+                }
+            });
+
+            const mitigationsData = [
+                { tactic: "Initial Access", technique: "T1190: Exploit Public-Facing Application", primary: "Timely Patch and Vulnerability Management", secondary: "WAF; NIPS; Attack Surface Monitoring." },
+                { tactic: "Initial Access", technique: "T1566: Phishing", primary: "Security Awareness Training", secondary: "Email Security Gateway; DMARC, DKIM, SPF." },
+                { tactic: "Persistence", technique: "T1136: Create Account", primary: "Privileged Access Management (PAM)", secondary: "User account auditing; IAM; EDR alerts." },
+                { tactic: "Persistence", technique: "T1053.005: Scheduled Task/Job", primary: "Endpoint Detection and Response (EDR)", secondary: "Application Whitelisting; HIDS." },
+                { tactic: "Privilege Escalation", technique: "T1068: Exploitation for Privilege Escalation", primary: "Patch Management", secondary: "Principle of Least Privilege; EDR." },
+                { tactic: "Defense Evasion", technique: "T1070.004: File Deletion", primary: "Log Aggregation and Monitoring (SIEM)", secondary: "File Integrity Monitoring (FIM); EDR." },
+                { tactic: "Credential Access", technique: "T1003: OS Credential Dumping", primary: "Credential Guard (Windows)", secondary: "EDR rules for Mimikatz; Restrict local admin." },
+                { tactic: "Lateral Movement", technique: "T1021.001: Remote Desktop Protocol", primary: "Network Segmentation", secondary: "Restrict RDP access; Monitor RDP logs." },
+                { tactic: "Impact", technique: "T1486: Data Encrypted for Impact (Ransomware)", primary: "Data Backup and Recovery (Immutable, Offline)", secondary: "EDR anti-ransomware; Network monitoring." },
+                { tactic: "Impact", technique: "T1485: Data Destruction (Wiper)", primary: "Network Segmentation and Access Control", secondary: "Data Backup and Recovery; App Whitelisting." }
+            ];
+
+            const mitigationsTable = document.getElementById('mitigations-table');
+            const mitigationFilters = document.getElementById('mitigation-filters');
+            const tactics = ["All", ...new Set(mitigationsData.map(m => m.tactic))];
+
+            function renderMitigations(filter = "All") {
+                mitigationsTable.innerHTML = "";
+                const filteredData = filter === "All" ? mitigationsData : mitigationsData.filter(m => m.tactic === filter);
+                filteredData.forEach(m => {
+                    const row = document.createElement('tr');
+                    row.className = 'bg-white border-b hover:bg-slate-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-slate-900"><strong class="block">${m.tactic}</strong>${m.technique}</td>
+                        <td class="px-6 py-4">${m.primary}</td>
+                        <td class="px-6 py-4">${m.secondary}</td>
+                    `;
+                    mitigationsTable.appendChild(row);
+                });
+            }
+
+            tactics.forEach(tactic => {
+                const button = document.createElement('button');
+                button.textContent = tactic;
+                button.className = `filter-btn px-4 py-2 rounded-full text-sm font-semibold border-2 transition ${tactic === 'All' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-300'}`;
+                button.onclick = () => {
+                    renderMitigations(tactic);
+                    document.querySelectorAll('.filter-btn').forEach(btn => {
+                        btn.classList.remove('bg-teal-600', 'text-white', 'border-teal-600');
+                        btn.classList.add('bg-white', 'text-slate-600', 'border-slate-300');
+                    });
+                    button.classList.add('bg-teal-600', 'text-white', 'border-teal-600');
+                    button.classList.remove('bg-white', 'text-slate-600', 'border-slate-300');
+                };
+                mitigationFilters.appendChild(button);
+            });
+            renderMitigations();
+
+
+            new Chart(document.getElementById('hacktivistChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Pro-Iranian Groups', 'Pro-Israeli Groups'],
+                    datasets: [{
+                        label: 'Number of Active Hacktivist Groups',
+                        data: [35, 6],
+                        backgroundColor: ['rgba(190, 24, 93, 0.6)', 'rgba(8, 145, 178, 0.6)'],
+                        borderColor: ['rgba(190, 24, 93, 1)', 'rgba(8, 145, 178, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Hacktivist Group Imbalance in Current Conflict', font: { size: 16 } },
+                        legend: { display: false }
+                    },
+                    scales: { y: { beginAtZero: true, suggestedMax: 40 } }
+                }
+            });
+
+            new Chart(document.getElementById('malwareFreeChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Malware-Free Intrusions', 'Malware-Based Intrusions'],
+                    datasets: [{
+                        data: [79, 21],
+                        backgroundColor: ['rgba(13, 148, 136, 0.7)', 'rgba(220, 38, 38, 0.6)'],
+                        borderColor: ['#ffffff'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: '79% of observed intrusions are now malware-free', font: { size: 16 } },
+                        tooltip: { callbacks: { label: (context) => `${context.label}: ${context.raw}%` } }
+                    },
+                    cutout: '60%'
+                }
+            });
+
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+            document.querySelectorAll('#mobile-menu a').forEach(link => {
+                link.addEventListener('click', () => mobileMenu.classList.add('hidden'));
+            });
+
+            const sections = document.querySelectorAll('.section-fade-in');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href').substring(1) === entry.target.id) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, { rootMargin: "-50% 0px -50% 0px" });
+            sections.forEach(section => observer.observe(section));
+
+        });
+    </script>
+
+</body>
+</html>
